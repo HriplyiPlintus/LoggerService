@@ -56,7 +56,7 @@ namespace CSPALogger
 		}
 
 		//one point to register FileSystemWatchers
-		private void RegisterWatchers(string path, bool isSecurityLog)
+		private void RegisterWatchers(string path)
 		{
 			
 		}
