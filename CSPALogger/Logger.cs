@@ -18,47 +18,52 @@ namespace CSPALogger
 		private bool _enabled;
 
 		private CSPAContext _db;
-		private readonly List<FileSystemWatcher> _watchers;
+		private readonly List<FileSystemWatcher> _watchers = new List<FileSystemWatcher>();
 		private XDocument _doc = new XDocument();
 		private object _o = new object();
 		private readonly string _point = "FS";
-		private string _source = "ARM";
-		private readonly string _file;
-		private readonly string _folder;
+		private const string _source = "ARM";
+		private readonly string _securityLogFile = "security.exe.log.xml";	//hardcode  
 
 		public Logger()
 		{
-			var configFile = XDocument.Load(_configFilePath);
-
-			if(configFile == null)
+			//no file - no logs
+			if (!File.Exists(_configFilePath))
 			{
-				WriteToEventLogger("Не задан файл конфигурации.");
+				WriteToEventLogger("Не задан файл конфигурации. Определите файл конфигурации и перезапустите службу.");
 				return;
 			}
 
-			_folder = configFile.Element("config").Element("directory").Value.Trim();
-			_file = configFile.Element("config").Element("path").Value.Trim();
+			var configFile = XDocument.Load(_configFilePath);
 
-			_watchers = new List<FileSystemWatcher>
-			{
-				new FileSystemWatcher{Path = _folder, IncludeSubdirectories = true},
-				new FileSystemWatcher{Path = Path.GetDirectoryName(_file), Filter = Path.GetFileName(_file)}
-			};
+			//get all pathes to monitor
+			var xmq = configFile.Element("config")?.Elements("directory")
+				.Select(e => new
+				{
+					Path = e.Element("path")?.Value.Trim(),
+					ExcludeFilter = e.Element("filterExclude")?.Value.Trim()
+				});
 
-			foreach(var w in _watchers)
+			//initialize all watchers
+			foreach(var i in xmq)
 			{
+				var path = i.Path;
+				//var excludeFilter = i.ExcludeFilter;	//todo implenetm excludeFilter
+				var filter = Path.GetExtension(path) == "" ? "" : path;	//if path is a concrete file than watch just for it's changes
+
+				var w = new FileSystemWatcher
+				{
+					Path = Directory.Exists(path) ? path : Path.GetDirectoryName(path),
+					Filter = Path.GetFileName(filter)
+				};
+
 				w.Changed += Logger_Changed;
 				w.Created += Logger_Created;
 				w.Deleted += Logger_Deleted;
 				w.Renamed += Logger_Renamed;
-			}
-			
-		}
 
-		//one point to register FileSystemWatchers
-		private void RegisterWatchers(string path)
-		{
-			
+				_watchers.Add(w);
+			}
 		}
 
 		public void Start()
@@ -93,15 +98,16 @@ namespace CSPALogger
 
 		public void Logger_Changed(object sender, FileSystemEventArgs e)
 		{
-			string msg;
+			string msg, source = "";
 
-			//если изменения в файле
-			if(_file.Contains(e.Name))
+			if(e.Name.Contains(_securityLogFile))	//if security event file changed
 			{
 				var securityEventMessage = GetSecurityEventMessage();
-				if(securityEventMessage == "") return;
+				//if(securityEventMessage == null) return;
 
-				msg = securityEventMessage;
+				//msg = securityEventMessage;
+				msg = $"проверка на файл прошла: {securityEventMessage}";
+				source = "Security";
 			}
 			else
 			{
@@ -110,7 +116,11 @@ namespace CSPALogger
 				msg = $"файл {filePath} был изменен";
 			}
 
-			var entry = MakeMaintableEntry(msg);
+			maintable entry;
+			if(source != "")
+				entry = MakeMaintableEntry(msg, source);
+			else
+				entry = MakeMaintableEntry(msg);
 
 			PutInDb(entry);
 		}
@@ -151,13 +161,14 @@ namespace CSPALogger
 		//message from inconics security events
 		private string GetSecurityEventMessage()
 		{
-			string msg = "";
-
 			try
 			{
-			_doc = XDocument.Load(_file);
-
-			if(_doc == null) return null;
+				_doc = XDocument.Load(_securityLogFile);
+			}
+			catch
+			{
+				return null;
+			}			
 
 			var xmq = _doc.Element("Trace")
 				.Elements("record")
@@ -166,8 +177,7 @@ namespace CSPALogger
 				                     || e.Element("message").Value.Contains("AddUser :"));
 
 			string currSeqNo = xmq.Attribute("SeqNo").Value.Trim();
-
-			//thts не надо проверять на отсутствие файла, потому что эта проверка должна быть при инициализации								  
+							  
 			if (currSeqNo == _previousSeqNo)
 				return null;	//если нашлась предыдущая запись
 
@@ -175,8 +185,9 @@ namespace CSPALogger
 		
 			string msgNodeText = xmq.Element("message").Value.Trim();
 			string userName = msgNodeText.Substring(msgNodeText.LastIndexOf(":") + 1).Trim();
-			
-			if(msgNodeText.Contains("Add"))
+
+			string msg;
+			if (msgNodeText.Contains("Add"))
 			{
 				msg = "Создан пользователь с именем " + userName + ".";
 			}
@@ -188,30 +199,36 @@ namespace CSPALogger
 			{
 				msg = "Непредвиденное событие.";
 			}
-			}
-
-			catch { }
 
 			return msg;
 		}
 
 		#endregion
 
-		//prepares maintable entity to write it to db in the future
-		private maintable MakeMaintableEntry(string messageParam)
+		//prepares maintable entity to write it to db
+		private maintable MakeMaintableEntry(string messageParam, string sourceParam = _source)
 		{
-			if(messageParam == "") return null;
+			if(messageParam == "") return null;	//bug redundant
 
 			var lastRecord = _db.maintables.OrderByDescending(e => e.id).FirstOrDefault();
 			string userRole = lastRecord.role;
 			string userName = lastRecord.username;
 
+			//return new maintable
+			//{
+			//	point = _point,
+			//	role = userRole,
+			//	username = userName,
+			//	source = sourceParam,
+			//	message = messageParam,
+			//	timestamp = DateTime.Now
+			//};
 			return new maintable
 			{
-				point = _point,
-				role = userRole,
-				username = userName,
-				source = _source,
+				point = "asdf",
+				role = "asdf",
+				username = "asdf",
+				source = "asdf",
 				message = messageParam,
 				timestamp = DateTime.Now
 			};
@@ -229,6 +246,7 @@ namespace CSPALogger
 			}
 		}
 
+		//write to Event Log
 		private void WriteToEventLogger(string msg)
 		{
 			string source = "CSPALogger";	  
