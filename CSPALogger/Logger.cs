@@ -22,8 +22,8 @@ namespace CSPALogger
 		private XDocument _doc = new XDocument();
 		private object _o = new object();
 		private readonly string _point = "FS";
-		private const string _source = "ARM";
-		private readonly string _securityLogFile = "security.exe.log.xml";	//hardcode  
+		private const string _source = "ARM";  
+		private readonly string _securityLogFilePath, _securityLogFileName;
 
 		public Logger()
 		{
@@ -49,12 +49,20 @@ namespace CSPALogger
 			{
 				var path = i.Path;
 				//var excludeFilter = i.ExcludeFilter;	//todo implenetm excludeFilter
-				var filter = Path.GetExtension(path) == "" ? "" : path;	//if path is a concrete file than watch just for it's changes
+				var filter = Path.GetExtension(path) == "" ? "" : path; //if path is a concrete file than watch just for it's changes
+
+				//get security file path and name
+				if (File.Exists(path))
+				{
+					_securityLogFilePath = path;
+					_securityLogFileName = Path.GetFileName(path);
+				}
 
 				var w = new FileSystemWatcher
 				{
 					Path = Directory.Exists(path) ? path : Path.GetDirectoryName(path),
-					Filter = Path.GetFileName(filter)
+					Filter = Path.GetFileName(filter),
+					IncludeSubdirectories = filter == ""	//if filter == "" than we work with directory and need to check subdirectories
 				};
 
 				w.Changed += Logger_Changed;
@@ -99,30 +107,29 @@ namespace CSPALogger
 		public void Logger_Changed(object sender, FileSystemEventArgs e)
 		{
 			string msg, source = "";
+			DateTime timestamp;
+			maintable entry;
 
-			if(e.Name.Contains(_securityLogFile))	//if security event file changed
+			if (e.Name.Contains(_securityLogFileName))	//if security event file changed
 			{
-				var securityEventMessage = GetSecurityEventMessage();
-				//if(securityEventMessage == null) return;
+				var securityEvent = GetSecurityEventMessage();
+				if(securityEvent.Message == null) return;
 
-				//msg = securityEventMessage;
-				msg = $"проверка на файл прошла: {securityEventMessage}";
+				msg = securityEvent.Message;
+				timestamp = securityEvent.Timestamp;
 				source = "Security";
+
+				entry = MakeMaintableEntry(msg, timestamp, source);
 			}
 			else
 			{
 				string filePath = e.FullPath;
-
 				msg = $"файл {filePath} был изменен";
+
+				entry = MakeMaintableEntry(msg);
 			}
 
-			maintable entry;
-			if(source != "")
-				entry = MakeMaintableEntry(msg, source);
-			else
-				entry = MakeMaintableEntry(msg);
-
-			PutInDb(entry);
+			PutInDb(entry);	//write to db
 		}
 
 		public void Logger_Created(object sender, FileSystemEventArgs e)
@@ -159,16 +166,16 @@ namespace CSPALogger
 		#region SecurityEvents
 
 		//message from inconics security events
-		private string GetSecurityEventMessage()
+		private (string Message, DateTime Timestamp) GetSecurityEventMessage()
 		{
 			try
 			{
-				_doc = XDocument.Load(_securityLogFile);
+				_doc = XDocument.Load(_securityLogFilePath);
 			}
 			catch
 			{
-				return null;
-			}			
+				return (null, DateTime.Now);	//because DateTime is not nullable type
+			}
 
 			var xmq = _doc.Element("Trace")
 				.Elements("record")
@@ -176,16 +183,11 @@ namespace CSPALogger
 				.FirstOrDefault(e => e.Element("message").Value.Contains("DeleteUser :")
 				                     || e.Element("message").Value.Contains("AddUser :"));
 
-			string currSeqNo = xmq.Attribute("SeqNo").Value.Trim();
-							  
-			if (currSeqNo == _previousSeqNo)
-				return null;	//если нашлась предыдущая запись
+			DateTime time = DateTime.Parse(xmq.Attribute("timestamp").Value.Replace("T", " ").Trim());  //todo changed
 
-			_previousSeqNo = currSeqNo;
-		
 			string msgNodeText = xmq.Element("message").Value.Trim();
 			string userName = msgNodeText.Substring(msgNodeText.LastIndexOf(":") + 1).Trim();
-
+			
 			string msg;
 			if (msgNodeText.Contains("Add"))
 			{
@@ -200,37 +202,41 @@ namespace CSPALogger
 				msg = "Непредвиденное событие.";
 			}
 
-			return msg;
+			//if row in db already exists
+			if (_db.maintables
+				.FirstOrDefault(row => row.timestamp == time && row.message == msg) != null)
+			{
+				return (null, DateTime.Now);
+			}
+
+			return (msg, time);
 		}
 
 		#endregion
 
 		//prepares maintable entity to write it to db
 		private maintable MakeMaintableEntry(string messageParam, string sourceParam = _source)
+		{	
+			//if we don't have timestamp than we put there DateTime.Now
+			return MakeMaintableEntry(messageParam, DateTime.Now,sourceParam);
+		}
+
+		private maintable MakeMaintableEntry(string messageParam, DateTime timeParam, string sourceParam = _source)
 		{
-			if(messageParam == "") return null;	//bug redundant
+			if (messageParam == "") return null;    //bug redundant
 
 			var lastRecord = _db.maintables.OrderByDescending(e => e.id).FirstOrDefault();
-			string userRole = lastRecord.role;
-			string userName = lastRecord.username;
+			string userRole = lastRecord?.role;	//write null if no last row in db
+			string userName = lastRecord?.username;
 
-			//return new maintable
-			//{
-			//	point = _point,
-			//	role = userRole,
-			//	username = userName,
-			//	source = sourceParam,
-			//	message = messageParam,
-			//	timestamp = DateTime.Now
-			//};
 			return new maintable
 			{
-				point = "asdf",
-				role = "asdf",
-				username = "asdf",
-				source = "asdf",
+				point = _point,
+				role = userRole,
+				username = userName,
+				source = sourceParam,
 				message = messageParam,
-				timestamp = DateTime.Now
+				timestamp = timeParam
 			};
 		}
 

@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.26730.10
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSPALogger", "CSPALogger\CSPALogger.csproj", "{06BC0775-D26F-40F7-982E-D1E14F483F1E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{803423BD-6666-4D14-9119-E71BF17883E3}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,10 +16,6 @@ Global
 		{06BC0775-D26F-40F7-982E-D1E14F483F1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{06BC0775-D26F-40F7-982E-D1E14F483F1E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{06BC0775-D26F-40F7-982E-D1E14F483F1E}.Release|Any CPU.Deploy.0 = Release|Any CPU
-		{803423BD-6666-4D14-9119-E71BF17883E3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{803423BD-6666-4D14-9119-E71BF17883E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{803423BD-6666-4D14-9119-E71BF17883E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{803423BD-6666-4D14-9119-E71BF17883E3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
