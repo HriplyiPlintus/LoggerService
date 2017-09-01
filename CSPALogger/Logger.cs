@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Data.Entity;
 using System.Diagnostics;
 using System.IO;
@@ -13,7 +14,7 @@ namespace CSPALogger
 {
 	public class Logger
 	{
-		private readonly string _configFilePath = @"C:\CSPALoggerConfig.xml";
+		private string _configFilePath = @"Content\CSPALoggerConfig.xml";
 		private string _previousSeqNo;
 		private bool _enabled;
 
@@ -27,6 +28,8 @@ namespace CSPALogger
 
 		public Logger()
 		{
+			_configFilePath = Path.GetFullPath(_configFilePath);	//reset config file path
+			
 			//no file - no logs
 			if (!File.Exists(_configFilePath))
 			{
