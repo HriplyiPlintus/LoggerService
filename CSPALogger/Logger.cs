@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Data.Common;
 using System.Data.Entity;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,7 +16,7 @@ namespace CSPALogger
 {
 	public class Logger
 	{
-		private string _configFilePath = @"Content\CSPALoggerConfig.xml";
+		private string _configFilePath = @"CSPALoggerConfig.xml";
 		private string _previousSeqNo;
 		private bool _enabled;
 
@@ -28,12 +30,12 @@ namespace CSPALogger
 
 		public Logger()
 		{
-			_configFilePath = Path.GetFullPath(_configFilePath);	//reset config file path
-			
+			_configFilePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\Content\\" + _configFilePath;
 			//no file - no logs
 			if (!File.Exists(_configFilePath))
 			{
-				WriteToEventLogger("Не задан файл конфигурации. Определите файл конфигурации и перезапустите службу.");
+				WriteToEventLogger($"Не задан файл конфигурации. Определите файл конфигурации и перезапустите службу.\n" +
+				                   $"{_configFilePath} не существует.");
 				return;
 			}
 
@@ -45,20 +47,25 @@ namespace CSPALogger
 				{
 					Path = e.Element("path")?.Value.Trim(),
 					ExcludeFilter = e.Element("filterExclude")?.Value.Trim()
-				});
+				});														  
 
 			//initialize all watchers
-			foreach(var i in xmq)
+			foreach (var i in xmq)
 			{
-				var path = i.Path;
+				var path = i.Path;										  
+
 				//var excludeFilter = i.ExcludeFilter;	//todo implenetm excludeFilter
 				var filter = Path.GetExtension(path) == "" ? "" : path; //if path is a concrete file than watch just for it's changes
 
 				//get security file path and name
-				if (File.Exists(path))
+				if(Directory.Exists(path) || File.Exists(path))
 				{
 					_securityLogFilePath = path;
 					_securityLogFileName = Path.GetFileName(path);
+				}
+				else
+				{
+					continue;	//no path ? next entry in config file
 				}
 
 				var w = new FileSystemWatcher
@@ -75,6 +82,12 @@ namespace CSPALogger
 
 				_watchers.Add(w);
 			}
+
+			var eventMessage = $"There is(are) {_watchers.Count} separate FileSystemWatcher(s) will log next folders and files: \n";
+			foreach(var w in _watchers)
+				eventMessage += $"Path: \"{w.Path}\"; Filter: \"{w.Filter}\";\n";
+
+			WriteToEventLogger(eventMessage, EventLogEntryType.Information);
 		}
 
 		public void Start()
@@ -109,7 +122,7 @@ namespace CSPALogger
 
 		public void Logger_Changed(object sender, FileSystemEventArgs e)
 		{
-			string msg, source = "";
+			string msg;
 			DateTime timestamp;
 			maintable entry;
 
@@ -120,14 +133,14 @@ namespace CSPALogger
 
 				msg = securityEvent.Message;
 				timestamp = securityEvent.Timestamp;
-				source = "Security";
+				var source = "Security";
 
 				entry = MakeMaintableEntry(msg, timestamp, source);
 			}
 			else
 			{
 				string filePath = e.FullPath;
-				msg = $"файл {filePath} был изменен";
+				msg = $"[Файловая система] - файл \"{filePath}\" был изменен";
 
 				entry = MakeMaintableEntry(msg);
 			}
@@ -138,29 +151,29 @@ namespace CSPALogger
 		public void Logger_Created(object sender, FileSystemEventArgs e)
 		{
 			string filePath = e.FullPath;
-			string msg = $"файл {filePath} был создан";
+			string msg = $"[Файловая система] - файл \"{filePath}\" был создан";
 
 			var entry = MakeMaintableEntry(msg);
-
+										 
 			PutInDb(entry);
 		}
 
 		public void Logger_Deleted(object sender, FileSystemEventArgs e)
 		{
 			string filePath = e.FullPath;
-			string msg = $"файл {filePath} был удален";
+			string msg = $"[Файловая система] - файл \"{filePath}\" был удален";
 
 			var entry = MakeMaintableEntry(msg);
-
+													
 			PutInDb(entry);
 		}
 
 		public void Logger_Renamed(object sender, RenamedEventArgs e)
 		{
-			string msg = $"файл {e.OldFullPath} был переименован в {e.FullPath}";
+			string msg = $"[Файловая система] - файл \"{e.OldFullPath}\" был переименован в {e.FullPath}";
 
 			var entry = MakeMaintableEntry(msg);
-
+													
 			PutInDb(entry);
 		}
 
@@ -256,14 +269,14 @@ namespace CSPALogger
 		}
 
 		//write to Event Log
-		private void WriteToEventLogger(string msg)
+		private void WriteToEventLogger(string msg, EventLogEntryType eventType = EventLogEntryType.Error)
 		{
 			string source = "CSPALogger";	  
 
 			if(!EventLog.SourceExists(source))
 				EventLog.CreateEventSource(source, "Application");
 
-			EventLog.WriteEntry(source, msg, EventLogEntryType.Error);
+			EventLog.WriteEntry(source, msg, eventType);
 		}
 	}
 }
