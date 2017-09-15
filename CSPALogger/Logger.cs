@@ -14,6 +14,16 @@ using System.Xml.Linq;
 
 namespace CSPALogger
 {
+	/*
+	 * Для установки необходимо установить .net framework 4.7
+	 * mysql (версии на армах хватит)
+	 * запустить из командной строки утилиту C:\Windows\Microsoft.NET\Framework64\v4.0.30319\InstallUtil.exe
+	 * и передать ей в виде агрумента директорию exe файла C:\CSPALogger\CSPALogger\CSPALogger\bin\Release\CSPALogger.exe
+	 * после этого открыть службы, и указать пароль и логин пользователя, от имени которого должна запускаться служба
+	 * и запустить службу. Отлидочные сообщения можно наблюдать в журнале приложений.
+	 * Для удаления службы необходимо утилине installUtil передать ту же директорию с ключем /u
+	 * InstallUtil.exe C:\CSPALogger\CSPALogger\CSPALogger\bin\Release\CSPALogger.exe /u
+	 */
 	public class Logger
 	{
 		private string _configFilePath = @"CSPALoggerConfig.xml";
@@ -29,7 +39,8 @@ namespace CSPALogger
 		private readonly string _securityLogFilePath, _securityLogFileName;
 
 		public Logger()
-		{
+		{			   
+			//определение пути к файлу конфигурации
 			_configFilePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\Content\\" + _configFilePath;
 			//no file - no logs
 			if (!File.Exists(_configFilePath))
