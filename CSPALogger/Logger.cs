@@ -27,7 +27,7 @@ namespace CSPALogger
 	public class Logger
 	{
 		private string _configFilePath = @"CSPALoggerConfig.xml";
-		private string _previousSeqNo;
+		//private string _previousSeqNo;
 		private bool _enabled;
 
 		private CSPAContext _db;

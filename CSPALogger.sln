@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.10
+VisualStudioVersion = 15.0.26730.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSPALogger", "CSPALogger\CSPALogger.csproj", "{06BC0775-D26F-40F7-982E-D1E14F483F1E}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "CSPALoggerSetup", "CSPALoggerSetup\CSPALoggerSetup.vdproj", "{B549DEEE-9F8C-452D-A815-4B848831DBD5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,6 +18,8 @@ Global
 		{06BC0775-D26F-40F7-982E-D1E14F483F1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{06BC0775-D26F-40F7-982E-D1E14F483F1E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{06BC0775-D26F-40F7-982E-D1E14F483F1E}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{B549DEEE-9F8C-452D-A815-4B848831DBD5}.Debug|Any CPU.ActiveCfg = Debug
+		{B549DEEE-9F8C-452D-A815-4B848831DBD5}.Release|Any CPU.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
